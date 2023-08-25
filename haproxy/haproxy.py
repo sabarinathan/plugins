@@ -1,108 +1,123 @@
 #!/usr/bin/python3
-import json,time
-import urllib
-import urllib.request as urlconnection
-from urllib.error import URLError, HTTPError
-from http.client import InvalidURL
-from collections import OrderedDict
+import json
 
-url = "http://localhost:80/haproxy?stats;csv"       #Please retain the ";csv" prefix after adding your URL here.
-username = None                            #Enter the user name provided by you in haproxy config file here
-password = None                            #Enter the password provided by you in haproxy config file here
-realm = None                               #Enter 'None' if no realm specified in haproxy config file
-
-
-#if any impacting changes to this plugin kindly increment the plugin version here.
-PLUGIN_VERSION = "1"
-
-#Setting this to true will alert you when there is a communication problem while posting plugin data to server
-HEARTBEAT="true"
+PLUGIN_VERSION=1
+HEARTBEAT=True
+METRICS_UNITS={ 'frontend_qtime':'ms', 
+                'frontend_ctime':'ms', 
+                'frontend_bin':'bytes', 
+                'frontend_bout':'bytes', 
+                'sys_stime':'ms', 
+                'sys_ttime_max':'ms',
+                'sys_check_duration':'ms'}
 
 
-dict_reqdMet = {'stot':'sessions-total' ,
-                'ereq':'request-errors' ,
-                'bin':'bytes-in',
-                'bout':'bytes-out' ,
-                'scur':'sessions-active-current' ,
-                'qcur':'requests-queue-current' ,
-                'act':'servers-active' ,
-                'rate':'sessions-rate-current' ,
-                'status':'status' 
-                }
 
-METRICS_UNITS = {'appname_BACKEND_bytes-out':'KB'}
+sys_metrics=["ttime_max","agent_status","cache_lookups","cache_hits","chkfail","hanafail","throttle","check_status","check_duration","cli_abrt","srv_abrt","comp_in","comp_out","comp_byp","comp_rsp","algo","eint","reuse","wrew","mode"]
+frontend_metrics=["qcur","qmax","qtime","ctime","scur","smax","bin","bout","dses","dreq","dcon","ereq","econ","wretr","wredis","rate","rate_max","req_rate","req_rate_max","connect","conn_rate","conn_rate_max","conn_tot","srv_icur","qtime_max","ctime_max","idle_conn_cur","safe_conn_cur","used_conn_cur","need_conn_est"]
 
-class haproxy():
-    def __init__(self):
-        self._url = url
-        self._userName = username
-        self._userPass = password
-        self._realm = realm
-        self.dictCounterValues = {}
-    def main(self):
-        self.metricCollector()
-    def metricCollector(self):
-        self._openURL()
-    def _openURL(self):
+class appname:
+
+    def __init__(self,args):
+        
+        self.maindata={}
+        self.maindata['plugin_version'] = PLUGIN_VERSION
+        self.maindata['heartbeat_required']=HEARTBEAT
+        self.maindata['units']=METRICS_UNITS
+        self.logsenabled=args.logs_enabled
+        self.logtypename=args.log_type_name
+        self.logfilepath=args.log_file_path
+        self.username=args.username
+        self.password=args.password
+        self.hostname=args.hostname
+        self.url=f"http://{args.hostname}:{args.port}/stats;csv"
+        
+
+    
+    def metriccollector(self):
+
         try:
-            if (self._userName and self._userPass):
-                password_mgr = urlconnection.HTTPPasswordMgr()
-                password_mgr.add_password(self._realm, self._url, self._userName, self._userPass)
-                auth_handler = urlconnection.HTTPBasicAuthHandler(password_mgr)
-                opener = urlconnection.build_opener(auth_handler)
-                urlconnection.install_opener(opener)
-                #requestObj = urlconnection.Request(self._url)
-            response = urlconnection.urlopen(self._url, timeout=10)
-            time.sleep(5)
-            response1 = urlconnection.urlopen(self._url, timeout=10)
-            if (response.status == 200 and response1.status == 200):
-                byte_responseData = response.read()
-                str_responseData = byte_responseData.decode('UTF-8')
-                self._parseStats(str_responseData)
-                byte_responseData1 = response1.read()
-                str_responseData1 = byte_responseData1.decode('UTF-8')
-                self._parseStats(str_responseData1,counter=True)
-            else:
-                print(str(json.dumps({'Error_code':str(response.status)})))
-        except HTTPError as e:
-            print(str(json.dumps({'Error_code':'HTTP Error '+str(e.code)})))
-        except URLError as e:
-            print(str(json.dumps({'Error_code':'URL Error '+str(e.reason)})))
-        except InvalidURL as e:
-            print(str(json.dumps({'Error_code':'Invalid URL'})))
-    def _parseStats(self,str_statsData,counter=False):
-        listHeaderData = []
-        listInterfaces = []
-        dictInterfaceData = OrderedDict()
-        listStatsData = str_statsData.split("#")[1].lstrip().rstrip().split("\n")
-        for interfaceIndex in range(len(listStatsData)):
-            str_interfaceData = ""
-            listValues = listStatsData[interfaceIndex].split(",")
-            if interfaceIndex == 0:
-                for eachValue in range(len(listValues)-1):
-                    listHeaderData.append(listValues[eachValue])
-                #print("\n HeaderData \n" + str(listHeaderData))
-            else:
-                str_dictKey = str(listValues[0])+'_'+str(listValues[1])
-                if str_dictKey in listInterfaces:
-                    continue
-                else:
-                    listInterfaces.append(str_dictKey)
-                for eachValue in range(len(listValues)-1):
-                    if listHeaderData[eachValue] in dict_reqdMet.keys():
-                        dictInterfaceData.setdefault(str_dictKey+ "_" + str(dict_reqdMet[listHeaderData[eachValue]]),listValues[eachValue])
-                        if (counter == True and (listHeaderData[eachValue] == 'bin' or listHeaderData[eachValue] == 'bout')):
-                            finalValue = ((int(listValues[eachValue]) - int(self.dictCounterValues[str_dictKey+ "_" + str(dict_reqdMet[listHeaderData[eachValue]])]))/5)
-                            dictInterfaceData[str_dictKey+ "_" + str(dict_reqdMet[listHeaderData[eachValue]])] = str(finalValue)
-                        else:
-                            pass
-        if counter==False:
-            self.dictCounterValues = dictInterfaceData
-        else:
-            dictInterfaceData['plugin_version'] = PLUGIN_VERSION
-            dictInterfaceData['heartbeat_required']=HEARTBEAT
-            print(str(json.dumps(dictInterfaceData)))
+            try:
+                import requests
+                from requests.auth import HTTPBasicAuth 
+                import io
+                import pandas as pd
 
-if __name__ == '__main__':
-    hap = haproxy()
-    hap.main()
+            except Exception as e:
+                self.maindata['msg']=str(e)
+                return self.maindata
+            
+            try:
+                response = requests.get(url = self.url,  auth = HTTPBasicAuth(self.username,  self.password))
+                if response.status_code==401:
+                     self.maindata['msg']="Authentication failed: Invalid credentials"
+                     return self.maindata
+                elif response.status_code == 403:
+                    self.maindata['msg']='Authentication failed: Access denied'
+                    return self.maindata
+
+            except requests.exceptions.RequestException as e:
+                 self.maindata['msg']=str(e)
+                 return self.maindata
+            res=response.text
+            ha_df=pd.read_csv(io.StringIO(res))
+            ha_df=ha_df.fillna(-1)
+
+
+
+
+            # sys metrics
+            sys_df=ha_df[ha_df['svname']=="FRONTEND"][sys_metrics]
+            sys_numeric_df=sys_df[sys_metrics[:-1]]
+
+            for index, metric in enumerate(sys_metrics):
+                 self.maindata["sys_"+metric]=float(sys_numeric_df.iloc[0,index])
+                 if index==len(sys_metrics)-2:
+                      break
+            self.maindata["sys_"+sys_metrics[-1]]=sys_df.iloc[0,len(sys_metrics)-1]
+
+            # frontend metrics
+            front_df=ha_df[ha_df['svname']=="FRONTEND"][frontend_metrics]
+            for index, metric in enumerate(frontend_metrics):
+                 self.maindata["frontend_"+metric]=float(front_df.iloc[0,index])
+
+                      
+        except Exception as e:
+             self.maindata['msg']=str(e)
+             return self.maindata
+
+        self.maindata['tags']=f"HAPROXY_HOST:{self.hostname}"
+            
+        applog={}
+        if(self.logsenabled in ['True', 'true', '1']):
+                applog["logs_enabled"]=True
+                applog["log_type_name"]=self.logtypename
+                applog["log_file_path"]=self.logfilepath
+        else:
+                applog["logs_enabled"]=False
+        self.maindata['applog'] = applog
+        return self.maindata
+
+
+if __name__=="__main__":
+    
+    username=None
+    password=None
+    hostname="localhost"
+    port=80
+
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--username', help='haproxy password',default=username)
+    parser.add_argument('--password', help='haproxy username',default=password)
+    parser.add_argument('--hostname', help='haproxy url hostname',default=hostname)
+    parser.add_argument('--port', help='haproxy url port',default=port)
+
+    parser.add_argument('--logs_enabled', help='enable log collection for this plugin application',default="False")
+    parser.add_argument('--log_type_name', help='Display name of the log type', nargs='?', default=None)
+    parser.add_argument('--log_file_path', help='list of comma separated log file paths', nargs='?', default=None)
+    args=parser.parse_args()
+
+    obj=appname(args)
+    result=obj.metriccollector()
+    print(json.dumps(result,indent=True))

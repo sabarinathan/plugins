@@ -1,181 +1,121 @@
-#!/usr/bin/python
-
-import httplib
+#!/usr/bin/python3
 import json
-import urllib2
+import requests
 
-#if any impacting changes to this plugin kindly increment the plugin version here.
-PLUGIN_VERSION = "1"
+PLUGIN_VERSION=1
+HEARTBEAT=True
+METRICS_UNITS={}
 
-#Setting this to true will alert you when there is a communication problem while posting plugin data to server
-HEARTBEAT="true"
+class nginx:
 
-#Config Section:
-NGINX_STATUS_URL = "http://localhost/status"
+    def __init__(self,args):
+        
+        self.maindata={}
+        self.maindata['plugin_version'] = PLUGIN_VERSION
+        self.maindata['heartbeat_required']=HEARTBEAT
+        self.maindata['units']=METRICS_UNITS
+        self.logsenabled=args.logs_enabled
+        self.logtypename=args.log_type_name
+        self.logfilepath=args.log_file_path
 
-class NginxPlus (object):
-    def __init__(self,config):
-        self.configurations=config
-        self.nginx_status_url=self.configurations.get('nginx_url', 'http://localhost/status')
+        self.url=args.nginx_status_url
+        self.username=args.username
+        self.password=args.password
 
-    def metricCollector(self):
 
-            data = {}
-            #defaults
-            data['plugin_version'] = PLUGIN_VERSION
-            data['heartbeat_required']=HEARTBEAT
-            status = self.getStatus(data)
-            if status:
-                # Connections
-                if 'connections' in status:
-                    data['connections_accepted'] = status['connections'].get('accepted', None)
-                    data['connections_dropped'] = status['connections'].get('dropped', None)
-                    data['connections_active'] = status['connections'].get('active', None)
-                    data['connections_idle'] = status['connections'].get('idle', None)
 
-                # Requests
-                data['requests_total'] = status['requests']['total']
-                data['requests_current'] = status['requests']['current']
 
-                #SSL
-                if 'ssl' in status:
-                    data['handshakes'] = status['ssl']['handshakes']
-                    data['handshakes_failed'] = status['ssl']['handshakes_failed']
-                    data['session_reuses'] = status['ssl']['session_reuses']
+
+    def urlGet(self, endpoint, url, auth):
+
+        maindata={}
+        try:
+            response=requests.get(self.url+endpoint,auth=(self.username,self.password))
+            response.raise_for_status()
+        
+        except requests.exceptions.HTTPError as err:
+            maindata['msg']="HTTP error: "+str(err)
+            maindata['status']=0
+            return maindata
+
+        except requests.exceptions.RequestException as err:
+             maindata['msg']="Requests Exception found: "+str(err)
+             maindata['status']=0
+             return maindata
+             
+        except Exception as e:
+             maindata['msg']=str(e)
+             maindata['status']=0
+             return maindata
+
+        result=response.json()
+        for key, value in result.items():
+            maindata[endpoint.split("/")[-1]+"_"+key]=value
+
+        return maindata
+
+    def metricData(self,endpoints, auth, url):
+        
+        maindata={}
+        for endpoint in endpoints:
+             interdata=self.urlGet(endpoint, url, auth)
+             maindata.update(interdata)
+             if "status" in interdata and interdata['status']==0:
+                return maindata
+             
+        return maindata
+                  
+
+
+
+    def metriccollector(self):
+        try:
+             
+
+            
+            auth=(self.username, self.password)
+            api_endpoints=['/connections','/ssl','/http/requests']
+            interdata=self.metricData(api_endpoints, self.url, auth)
+            self.maindata.update(interdata)
+            if "ssl_verify_failures" in self.maindata:
+                del self.maindata['ssl_verify_failures']
                 
-                # Server zones
-                if 'server_zones' in status:
-                    for zone, items in status['server_zones'].iteritems():
-                        # Requests
-                        name = 'zone_%s_requests' % zone
-                        data[name] = items.get('requests', None)
+        except Exception as e:
+             self.maindata['msg']=str(e)
+             self.maindata['status']=0
+             return self.maindata
+             
 
-                        name = 'zone_%s_received' % zone
-                        data[name] = items.get('received', None)
 
-                        name = 'zone_%s_discarded' % zone
-                        data[name] = items.get('discarded', None)
+        applog={}
+        if(self.logsenabled in ['True', 'true', '1']):
+                applog["logs_enabled"]=True
+                applog["log_type_name"]=self.logtypename
+                applog["log_file_path"]=self.logfilepath
+        else:
+                applog["logs_enabled"]=False
+        self.maindata['applog'] = applog
+        return self.maindata
 
-                        name = 'zone_%s_sent' % zone
-                        data[name] = items.get('sent', None)
 
-                        name = 'zone_%s_processing' % zone
-                        data[name] = items.get('processing', None)
 
-                        if 'responses' in items:
-                            # Responses
-                            name = 'zone_%s_responses' % zone
-                            data[name] = items['responses'].get('total', None)
-
-                            # Responses: 1xx
-                            name = 'zone_%s_responses_1xx' % zone
-                            data[name] = items['responses'].get('1xx', None)
-
-                            # Responses: 2xx
-                            name = 'zone_%s_responses_2xx' % zone
-                            data[name] = items['responses'].get('2xx', None)
-
-                            # Responses: 3xx
-                            name = 'zone_%s_responses_3xx' % zone
-                            data[name] = items['responses'].get('3xx', None)
-
-                            # Responses: 4xx
-                            name = 'zone_%s_responses_4xx' % zone
-                            data[name] = items['responses'].get('4xx', None)
-
-                            # Responses: 5xx
-                            name = 'zone_%s_responses_5xx' % zone
-                            data[name] = items['responses'].get('5xx', None)
-
-                # Upstreams
-                if 'upstreams' in status:
-                    for group, servers in status['upstreams'].iteritems():
-
-                        for server in servers:
-
-                            if 'server' in server:
-                                # State
-                                name = 'upstream_%s_%s_state' % (group, server['server'])
-                                data[name] = server.get('state', 'unknown')
-
-                                # Requests
-                                name = 'upstream_%s_%s_requests' % (group, server['server'])
-                                data[name] = server.get('requests', None)
-
-                                # Responses
-                                if 'responses' in server:
-                                    name = 'upstream_%s_%s_responses_total' % (group, server['server'])
-                                    data[name] = server['responses'].get('total', None)
-
-                                    # Requests: 1xx
-                                    name = 'upstream_%s_%s_responses_1xx' % (group, server['server'])
-                                    data[name] = server['responses'].get('1xx', None)
-
-                                    # Responses: 2xx
-                                    name = 'upstream_%s_%s_responses_2xx' % (group, server['server'])
-                                    data[name] = server['responses'].get('2xx', None)
-
-                                    # Responses: 3xx
-                                    name = 'upstream_%s_%s_responses_3xx' % (group, server['server'])
-                                    data[name] = server['responses'].get('3xx', None)
-
-                                    # Responses: 4xx
-                                    name = 'upstream_%s_%s_responses_4xx' % (group, server['server'])
-                                    data[name] = server['responses'].get('4xx', None)
-
-                                    # Responses: 5xx
-                                    name = 'upstream_%s_%s_responses_5xx' % (group, server['server'])
-                                    data[name] = server['responses'].get('5xx', None)
-
-                                # Fails
-                                name = 'upstream_%s_%s_fails' % (group, server['server'])
-                                data[name] = server.get('fails', None)
-
-                                # Unavail
-                                name = 'upstream_%s_%s_unavail' % (group, server['server'])
-                                data[name] = server.get('unavail', None)
-
-            return data
-
-    def getStatus(self,data):
-        try:
-            
-            req = urllib2.Request(self.nginx_status_url)
-            request = urllib2.urlopen(req)
-            response = request.read()
-
-        except urllib2.HTTPError, e:
-            data['status']=0
-            data['msg']='HTTP error'
-            
-        except urllib2.URLError, e:
-            data['status']=0
-            data['msg']='URL error'
-
-        except httplib.HTTPException, e:
-            data['status']=0
-            data['msg']='HTTP Exception'
-
-        except Exception:
-            data['status']=0
-            data['msg']='Exception Occured'
-
-        try:
-            status = json.loads(response)
-        except Exception:
-            import traceback
-            traceback.format_exc()
-            return False
-
-        return status
-
-if __name__ == "__main__":
+if __name__=="__main__":
     
-    configurations = {'nginx_url':NGINX_STATUS_URL}
 
-    nginx_plus = NginxPlus(configurations)
-   
-    result = nginx_plus.metricCollector()
-    
-    print(json.dumps(result, indent=4, sort_keys=True))
-   
+    nginx_status_url='http://localhost:80/api/3'
+    username=None
+    password=None
+
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--logs_enabled', help='enable log collection for this plugin application',default="False")
+    parser.add_argument('--log_type_name', help='Display name of the log type', nargs='?', default=None)
+    parser.add_argument('--log_file_path', help='list of comma separated log file paths', nargs='?', default=None)
+    parser.add_argument('--nginx_status_url', help='nginx api url', nargs='?', default=nginx_status_url)
+    parser.add_argument('--username', help='username', nargs='?', default=username)
+    parser.add_argument('--password', help='password', nargs='?', default=password)
+    args=parser.parse_args()
+
+    obj=nginx(args)
+    result=obj.metriccollector()
+    print(json.dumps(result,indent=True))

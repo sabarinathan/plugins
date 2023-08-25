@@ -1,49 +1,40 @@
-
 Plugin for Zookeeper Monitoring
-===========================
+=============================
 
-Zookeeper Plugin is for monitoring the performance metrics of Zookeeper.
-  
+Apache Zookeeper is a distributed hierarchical key-value store, which is used to provide a distributed configuration service, synchronization service, and naming registry for large distributed systems. Install and use our Zookeeper monitoring tool and get detailed insights into system activity and health.
 
-PreRequisites
-=============
+Get to know how to configure the Zookeeper plugin and the monitoring metrics for providing in-depth visibility into the performance, availability, and usage stats of Zookeeper servers.
 
-Ensure that the Zookeeper service is installated and up and running
-Download Zookeeper from https://github.com/site24x7/plugins/blob/master/zookeeper/zookeeper.py 
-Place it in the plugin folder 'zookeeper/zookeeper.py' under agent plugins directory (/opt/site24x7/monagent/plugins/)
+Learn more https://www.site24x7.com/plugins/zookeeper-monitoring.html
 
 
-Configurations:
-==============
-In order to change the monitoring configurations, go to plugins directory and edit the required plugin file.
+## Prerequisites
 
-For e.g. zookeeper => /opt/site24x7agent/monagent/plugins/zookeeper/zookeeper.py
-
-#Config Section:
-ZOOKEEPER_HOST='127.0.0.1'
-
-ZOOKEEPER_PORT=2181
+- Download and install the latest version of the [Site24x7 agent](https://www.site24x7.com/app/client#/admin/inventory/add-monitor) in the server where you plan to run the plugin. 
+- Download and install Python version 3 or higher.
 
 
-Zookeeper Plugin Attributes:
-=======================
+### Plugin Installation  
 
-Some of the collected zookeper server attributes are as follows:
+- Create a directory named "zookeeper"
 
-"imok" : Denotes zookeeper status .
+- Download the below files and place it under the "zookeeper" directory.
 
-"zk_outstanding_requests" : Total number of outstanding requests.
+		wget https://raw.githubusercontent.com/site24x7/plugins/master/zookeeper/zookeeper.py
 
-"latency avg" : Average latency
+- Follow the steps in [this article](https://support.site24x7.com/portal/en/kb/articles/updating-python-path-in-a-plugin-script-for-linux-servers) to update the Python path in the zookeeper.py script.
 
-"connections" : Total number of connections. 
+- Edit the zookeeper.py file with appropriate arguments and Execute the below command to check for the valid JSON output:
 
-"maxclientcnxns" : Total number of maximum client connections
+		python zookeeper.py
+  #### Linux
 
-"maxsessiontimeout" : Maximum session time out value
+- Place the "zookeeper" folder under Site24x7 Linux Agent plugin directory : 
 
-"minsessiontimeout" : Minimum session time out value
+		Linux             ->   /opt/site24x7/monagent/plugins/zookeeper
 
-"zk_packets_sent" : Total number of packets sent
+  #### Windows 
 
-"zk_packets_received" : Total number of packets received.
+- Move the folder "zookeeper" under Site24x7 Windows Agent plugin directory: 
+
+		Windows          ->   C:\Program Files (x86)\Site24x7\WinAgent\monitoring\Plugins\zookeeper

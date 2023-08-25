@@ -2,59 +2,43 @@
 Plugin for MemCache Monitoring
 ==============================
 
-MemCache Plugin is for monitoring the performance metrics of MemCached server. 
+Memcached is a free and open-source, general purpose distributed memory caching system. Analyze the performance of your Memcached server and take informed troubleshooting descisions by keeping track of critical metrics.
+
+Get to know how to configure the Memcached plugin and the monitoring metrics for providing in-depth visibility into the performance, availability, and usage stats of Memcached servers.
   
+Learn more https://www.site24x7.com/plugins/memcached-monitoring.html
 
-PreRequisites
-=============
+## Prerequisites
 
-Download memcache plugin from https://github.com/site24x7/plugins/blob/master/memcached/memcached.py
-Place the plugin folder 'memcached/memcached.py' under agent plugins directory (/opt/site24x7/monagent/plugins/)
-Our plugin uses 'memcache' module to interact with the Memcached server. Have this installed to use this feature.
-Installation of the memcache module is as follows
+- Download and install the latest version of the [Site24x7 agent](https://www.site24x7.com/app/client#/admin/inventory/add-monitor) in the server where you plan to run the plugin. 
 
+- Execute the following command in your server: 
 
-How to install memcache
-=======================
+		pip install python-memcached
+---
 
-Execute the following command in your server to install memcache:
-Download the python-memcache(python-memcached-1.57.tar.gz) from its source https://pypi.python.org/pypi/python-memcached.
-Build the same by executing the following commands:
+### Plugin Installation  
 
-python setup.py build
-python setup.py install
+- Create a directory named "memcached"
 
-Try importing memcache module in your python interperter should not throw any error on successful installation.
+- Download the below files and place it under the "memcached" directory.
 
+		wget https://raw.githubusercontent.com/site24x7/plugins/master/memcached/memcached.py
 
-Configurations:
-==============
-In order to change the monitoring configurations, go to plugins directory and edit the required plugin file.
+- Follow the steps in [this article](https://support.site24x7.com/portal/en/kb/articles/updating-python-path-in-a-plugin-script-for-linux-servers) to update the Python path in the memcached.py script.
 
-For e.g. memcache => /opt/site24x7agent/monagent/plugins/memcached/memcached.py
+- Edit the memcached.py file with appropriate arguments and Execute the below command to check for the valid JSON output:
 
-#Config Section:
-MEMCACHE_HOST='127.0.0.1'
+		python memcached.py
+  
+  #### Linux
 
-MEMCACHE_PORT=11211
+- Place the "memcached" folder under Site24x7 Linux Agent plugin directory : 
 
-Memcache Plugin Attributes:
-=======================
+		Linux             ->   /opt/site24x7/monagent/plugins/memcached
 
-Some of the collected memcache attributes are as follows:
+  #### Windows 
 
-"bytes" : Current number of bytes used by this server to store items.
+- Move the folder "memcached" under Site24x7 Windows Agent plugin directory: 
 
-"curr_connections" : Current number of open connections.
-
-"total_connections" : Total number of connections opened since the server started running.
-
-"bytes_read" : Total number of bytes read by this server from network
-
-"bytes_written" : Total number of bytes sent by this server to network
-
-"limit_maxbytes" : Number of bytes this server is permitted to use for storage.
-
-"threads" : Number of worker threads requested.
-
-"evictions" : Number of valid items removed from cache to free memory for new items. 
+		Windows          ->   C:\Program Files (x86)\Site24x7\WinAgent\monitoring\Plugins\memcached

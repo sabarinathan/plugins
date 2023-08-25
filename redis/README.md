@@ -1,77 +1,44 @@
+# Redis Monitoring
+                                                                                              
+## Prerequisites
 
-Plugin for Redis Monitoring
-===========================
+- Download and install the latest version of the [Site24x7 Linux agent] (https://www.site24x7.com/app/client#/admin/inventory/add-monitor) in the server where you plan to run the plugin. 
 
-Redis Plugin is for monitoring the performance metrics of Redis database. 
-  
+- Execute the following command in your server to install Redis: 
 
-PreRequisites
-=============
+		pip install redis
+---
 
-Download redis plugin from https://github.com/site24x7/plugins/blob/master/redis/Redis.py
-Place the plugin folder 'redis/redis.py' under agent plugins directory (/opt/site24x7/monagent/plugins/)
-Our plugin uses 'redis' module to interact with the Redis server. Have this installed to use this feature.
-Installation of the redis module is as follows
+### Plugin Installation  
+
+- Download all the files in the "Redis" folder and place it under the "Redis" directory.
+
+		wget https://raw.githubusercontent.com/site24x7/plugins/master/redis/Redis.py
+		wget https://raw.githubusercontent.com/site24x7/plugins/master/redis/Redis.cfg
+
+- Follow the steps in [this article](https://support.site24x7.com/portal/en/kb/articles/updating-python-path-in-a-plugin-script-for-linux-servers) to update the Python path in the Redis.py script.
+
+- Execute the below command with appropriate arguments to check for the valid JSON output:
+
+		python Redis.py --host=<REDIS_HOST> --port=<REDIS_PORT> --password=<REDIS_PASSWORD> --dbs=<REDIS_DBS> 
+
+- Move the "Redis" directory to the Site24x7 Linux Agent plugin directory: 
+
+		Linux             ->   /opt/site24x7/monagent/plugins/
 
 
-How to install redis
-===================
+---
 
-Execute the following command in your server to install redis:
-pip install redis
+### Configurations
 
-How to install pip
-==================
+- Provide your Redis configurations in Redis.cfg file.
 
-For CentOS, Fedora, RHEL:
-	yum install python-devel
-	yum install python-pip (or)
-	easy_install pip	
+		[redis]
+		host = <REDIS_HOST>
+		port = <REDIS_PORT>
+		password = <REDIS_PASSWORD>
+		dbs = <REDIS_DBS>
+		
+The agent will automatically execute the plugin within five minutes and send performance data to the Site24x7 data center.
 
-For Debian, Ubuntu :
-	apt-get update
-	apt-get -y install python-pip (or)
-	easy_install pip
 
-Note:
-	pip is a package management system that is used to install and manage software packages written in Python.
-
-Configurations:
-==============
-In order to change the monitoring configurations, go to plugins directory and edit the required plugin file.
-
-For e.g. redis => /opt/site24x7agent/monagent/plugins/redis/Redis.py
-
-#Config Section:
-==================
-
-REDIS_HOST = "localhost"
-
-REDIS_PORT = "6379"
-
-REDIS_PASSWORD = ""
-
-REDIS_DBS = "0"
-
-REDIS_QUEUES = ""
-
-Redis Plugin Attributes:
-=======================
-
-Some of the collected redis attributes are as follows:
-
-"used_memory" : Total no. of bytes allocated by Redis
-
-"used_memory_peak" : Peak memory consumed by Redis
-
-"used_cpu_sys" : System CPU consumed by Redis
-
-"used_cpu_user" : User CPU consumed by Redis
-
-"keyspace_hits" : No. of successful lookup of keys in the main dictionary
-
-"keyspace_misses" : No. of failed lookup of keys in the main dictionary
-
-"total_connections_received" : Total no. of connections accepted by the server
-
-"rejected_connections" : Total no. of connections rejected by max clients limit
